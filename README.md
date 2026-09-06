@@ -1,4 +1,5 @@
 # GIR Rewrite
+
 ![GIR banner](data/images/banner.png)
 
 GIR is a sophisticated moderation and miscellaneous utilities Discord bot created for the [r/Jailbreak Discord server](https://reddit.com/r/jailbreak). It features:
@@ -51,7 +52,7 @@ This setup uses Docker for deployment. You will need the following:
 
 If everything is successful, the bot should be online in a few seconds. Otherwise, check the container's logs: `docker-compose logs gir`.
 
-> **IMPORTANT**: slash commands are not synced automatically. Instead, the bot owner can DM the bot `!sync` to sync slash commands with Discord. This only needs to be done once when the bot is set up, or when you change any of the command data (such adding a new command, changing a command's name or description, etc.) 
+> Slash commands synchronize to the configured guild when GIR starts. Set `GIR_SYNC_COMMANDS=False` if an operator needs to manage synchronization manually with `!sync`.
 
 The bot can be updated in the future by running: `git pull && docker-compose up -d --build --force-recreate`
 
@@ -109,6 +110,28 @@ If you want to inspect or change database values:
 - If running MongoDB in Docker, you can use the web GUI at http://127.0.0.1:8081
 
 ---
+
+
+## Optional community suite setup
+
+This change adds general community, free-game, expression, Apple signing, and moderation tools. They use the existing dependencies in `requirements.txt`; no paid API key is required.
+
+- `GIR_COMMUNITY_FILE` can point to a JSON settings file. It defaults to `data/community.json`, which is created from safe defaults.
+- `GIR_FEATURE_FILE` can point to a JSON file containing an `enabled` array of extension names. When it is unset, all upstream extensions and both new suites load normally.
+- `GIR_SYNC_COMMANDS=False` disables automatic guild command synchronization. It is enabled by default.
+- `TSSCHECKER_PATH` is optional. Interactive TSS commands use IPSW.me's small firmware catalog and do not download IPSW files.
+- Configure the existing `member_plus`, `moderator`, and `administrator` role IDs and the `reports` channel ID during normal database setup. Users below Member+ who post four images in one message receive a seven-day timeout and a staff review card.
+- The bot needs **Manage Messages**, **Moderate Members**, **Ban Members**, **Manage Roles**, **Manage Expressions**, and **View Audit Log** for the corresponding features. Its role must sit above members it moderates. Enable the Server Members and Message Content privileged intents in the Discord Developer Portal.
+
+Free-game checks use the keyless GamerPower, Epic Games Store, and CheapShark endpoints. Optional background actions remain disabled in `data/community.json` until configured.
+
+### Data services and attribution
+
+- [GamerPower](https://www.gamerpower.com/) supplies public giveaway listings and is linked from every applicable result.
+- [Epic Games Store](https://store.epicgames.com/free-games) supplies its first-party promotion catalog.
+- [CheapShark](https://www.cheapshark.com/) supplies public PC-store deal data.
+- [IPSW.me](https://ipsw.me/) supplies Apple device and signing-status metadata.
+- [FreeStuff](https://github.com/FreeStuffBot/FreeStuff) was reviewed as a product reference for filtering and presentation. This implementation is independent and does not include its GPL-licensed source.
 
 ## Contributors
 

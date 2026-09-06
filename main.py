@@ -1,6 +1,9 @@
 import asyncio
 import os
 import traceback
+import json
+import uuid
+from pathlib import Path
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -19,6 +22,8 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
+# Keep the events GIR uses while avoiding presence and typing firehoses on very
+# large servers. Member and message-content access are checked by the dashboard.
 intents = discord.Intents.all()
 mentions = discord.AllowedMentions(everyone=False, users=True, roles=False)
 
@@ -42,6 +47,13 @@ class Bot(commands.Bot):
 
         setup_context_commands(self)
 
+        # Keep slash commands current without requiring the owner to run !sync
+        # after an update. GIR's commands are guild-scoped, so this takes effect
+        # immediately in the configured server.
+        if os.environ.get("GIR_SYNC_COMMANDS", "True") == "True":
+            synced = await self.tree.sync(guild=discord.Object(id=cfg.guild_id))
+            logger.info(f"Synced {len(synced)} application commands.")
+
         self.tasks = Tasks(self)
         await init_client_session()
 
@@ -54,10 +66,21 @@ class MyTree(app_commands.CommandTree):
         if interaction.user.bot:
             return False
 
+        command = interaction.command
+
+        if command is not None:
+            root_name = command.root_parent.name if command.root_parent else command.name
+            settings_path = Path(os.environ.get("GIR_COMMUNITY_FILE", str(Path("data/community.json"))))
+            try:
+                disabled = set(json.loads(settings_path.read_text()).get("disabledCommands", []))
+            except (OSError, ValueError, TypeError):
+                disabled = set()
+            if root_name in disabled and interaction.user.id != cfg.owner_id:
+                await interaction.response.send_message("That command is currently turned off for this server.", ephemeral=True)
+                return False
+
         if gatekeeper.has(interaction.user.guild, interaction.user, 6):
             return True
-
-        command = interaction.command
 
         if isinstance(interaction.command, discord.app_commands.ContextMenu):
             return True
@@ -110,7 +133,17 @@ async def app_command_error(interaction: discord.Interaction, error: AppCommandE
         error = error.original
 
     if isinstance(error, discord.errors.NotFound):
-        await ctx.channel.send(embed=discord.Embed(color=discord.Color.red(), title=":(\nYour command ran into a problem.", description=f"Sorry {interaction.user.mention}, it looks like I took too long to respond to you! If I didn't do what you wanted in time, please try again."), delete_after=7)
+        try:
+            await ctx.send_error("Discord says this command took too long. Please try it once more.", whisper=True)
+        except discord.HTTPException:
+            pass
+        return
+
+    if isinstance(error, discord.Forbidden):
+        logger.error(f"Discord denied command {getattr(interaction.command, 'qualified_name', 'unknown')}: {error}")
+        await ctx.send_error(
+            "Discord blocked that action. GIR has its moderation permission, but its role may be below the selected member's role. Ask the server owner to move GIR higher in Server Settings → Roles.",
+            followup=True, whisper=True)
         return
 
     if (isinstance(error, commands.MissingRequiredArgument)
@@ -124,19 +157,14 @@ async def app_command_error(interaction: discord.Interaction, error: AppCommandE
             or isinstance(error, commands.NoPrivateMessage)):
         await ctx.send_error(error, followup=True, whisper=True, delete_after=5)
     else:
+        reference = uuid.uuid4().hex[:8]
+        logger.error(f"Command error reference {reference}\n{''.join(traceback.format_exception(type(error), error, error.__traceback__))}")
         try:
-            raise error
-        except:
-            tb = traceback.format_exc()
-            logger.error(tb)
-            if len(tb.split('\n')) > 8:
-                tb = '\n'.join(tb.split('\n')[-8:])
-
-            tb_formatted = tb
-            if len(tb_formatted) > 1000:
-                tb_formatted = "...\n" + tb_formatted[-1000:]
-
-            await ctx.send_error(description=f"`{error}`\n```{tb_formatted}```", followup=True, whisper=True, delete_after=5)
+            await ctx.send_error(
+                description=f"Something unexpected happened. The private server log has reference `{reference}`.",
+                followup=True, whisper=True)
+        except discord.HTTPException:
+            logger.error(f"Could not deliver command error reference {reference} to Discord")
 
 
 @bot.event
@@ -166,4 +194,5 @@ async def main():
     async with bot:
         await bot.start(os.environ.get("GIR_TOKEN"), reconnect=True)
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

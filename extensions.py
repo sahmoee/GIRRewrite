@@ -1,4 +1,11 @@
-initial_extensions = [
+import json
+import os
+from pathlib import Path
+
+
+default_extensions = [
+    "cogs.community_suite",
+    "cogs.server_suite",
     "cogs.commands.info.devices",
     "cogs.commands.info.stats",
     "cogs.commands.info.help",
@@ -29,3 +36,13 @@ initial_extensions = [
     "cogs.monitors.utils.jailbreak_monitors",
     "cogs.monitors.utils.xp",
 ]
+
+feature_path = os.environ.get("GIR_FEATURE_FILE")
+if feature_path:
+    try:
+        enabled_extensions = set(json.loads(Path(feature_path).read_text()).get("enabled", []))
+        initial_extensions = [name for name in default_extensions if name in enabled_extensions]
+    except (OSError, ValueError, TypeError):
+        initial_extensions = list(default_extensions)
+else:
+    initial_extensions = list(default_extensions)
