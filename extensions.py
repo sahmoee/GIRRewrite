@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from utils.runtime_paths import runtime_data_file
 
 # The upstream bot was built for r/Jailbreak. Start with the general moderation,
 # utility, logging, XP, and self-service features that make sense in any Discord
@@ -30,8 +31,7 @@ default_extensions = [
     "cogs.monitors.utils.xp",
 ]
 
-feature_file = Path(os.environ.get(
-    "GIR_FEATURE_FILE", str(Path.home() / "Library/Application Support/SowensServer/GIRRuntime/dashboard/data/features.json")))
+feature_file = Path(os.environ.get("GIR_FEATURE_FILE", runtime_data_file("features.json")))
 try:
     enabled_extensions = set(json.loads(feature_file.read_text()).get("enabled", []))
     initial_extensions = [name for name in default_extensions if name in enabled_extensions]

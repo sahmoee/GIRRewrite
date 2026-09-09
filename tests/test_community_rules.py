@@ -16,6 +16,8 @@ def test_detects_wallet_secret_theft():
 def test_does_not_flag_normal_scam_discussion():
     assert detect_scam("I saw a video explaining the MrBeast scam yesterday") is None
     assert detect_scam("Steam has a giveaway on its official store") is None
+    assert detect_scam("Change your Discord password and scan the QR code in Settings") is None
+    assert detect_scam("Use AirDrop to send this from your Apple device") is None
 
 
 def test_removes_invisible_invite_bypass_characters():

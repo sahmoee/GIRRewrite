@@ -16,6 +16,7 @@ from cogs.commands.context_commands import setup_context_commands
 
 from typing import Union
 from data.services.user_service import user_service
+from utils.runtime_paths import runtime_data_file
 
 # Remove warning from songs cog
 import warnings
@@ -34,10 +35,7 @@ mentions = discord.AllowedMentions(everyone=False, users=True, roles=False)
 
 
 def command_settings_path() -> Path:
-    return Path(os.environ.get(
-        "GIR_COMMUNITY_FILE",
-        str(Path.home() / "Library/Application Support/SowensServer/GIRRuntime/dashboard/data/community.json"),
-    ))
+    return Path(os.environ.get("GIR_COMMUNITY_FILE", runtime_data_file("community.json")))
 
 
 def command_selection() -> set[str]:
